@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
+import { DottedSurface } from "@/components/ui/dotted-surface";
 import OnboardingForm from "@/components/OnboardingForm";
 import PipelineView from "@/components/PipelineView";
 import type { Client } from "@/lib/db";
@@ -39,9 +40,8 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Ambient glow blobs */}
-      <div className="ambient-blob ambient-blob-1" />
-      <div className="ambient-blob ambient-blob-2" />
+      {/* 3D Dotted Surface background */}
+      <DottedSurface />
 
       {/* Header */}
       <header

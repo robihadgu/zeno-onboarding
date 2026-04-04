@@ -74,11 +74,11 @@ export function welcomeEmailHtml(
     </div>
 
     <div style="background: #f0faf4; border-radius: 10px; padding: 20px 24px; margin: 20px 0;">
-      <h3 style="color: ${BRAND_DARK}; margin: 0 0 12px; font-size: 16px;">Complete Your Onboarding Form</h3>
+      <h3 style="color: ${BRAND_DARK}; margin: 0 0 12px; font-size: 16px;">Complete Your Onboarding</h3>
       <p style="text-align: center; margin: 16px 0;">
-        ${blueButton("Start Onboarding Form &rarr;", notionFormLink)}
+        ${blueButton("Start Onboarding &rarr;", notionFormLink)}
       </p>
-      <p style="color: #555; font-size: 14px; margin: 12px 0 0;">This form helps us build your system exactly the way you want it. Takes about 10 minutes.</p>
+      <p style="color: #555; font-size: 14px; margin: 12px 0 0;">Complete your onboarding so we can start building your AI system. Takes about 10 minutes.</p>
     </div>
 
     <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
@@ -170,7 +170,7 @@ export function onboardingReminderHtml(
     <p style="color: #333; font-size: 15px; line-height: 1.6;">Hi ${client.name},</p>
     <p style="color: #333; font-size: 15px; line-height: 1.6;">${messages[reminderNumber] || messages[1]}</p>
     <p style="text-align: center; margin: 28px 0;">
-      ${blueButton("Complete Onboarding Form &rarr;", notionLink)}
+      ${blueButton("Complete Onboarding &rarr;", notionLink)}
     </p>
     <p style="color: #888; font-size: 14px;">Need help? Text Robi at 571-699-9042.</p>
     <p style="color: #333; font-size: 15px; margin-top: 24px;">— Robi, Zeno Automation</p>

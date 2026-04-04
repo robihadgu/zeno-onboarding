@@ -1,87 +1,38 @@
-import Database from "better-sqlite3";
-import path from "path";
+import { neon } from "@neondatabase/serverless";
 
-const DB_PATH = path.join(process.cwd(), "zeno.db");
-
-let db: Database.Database;
-
-function getDb(): Database.Database {
-  if (!db) {
-    db = new Database(DB_PATH);
-    db.pragma("journal_mode = WAL");
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS clients (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        business_name TEXT NOT NULL,
-        email TEXT NOT NULL,
-        plan TEXT NOT NULL CHECK(plan IN ('growth', 'elite')),
-        status TEXT NOT NULL DEFAULT 'agreement_sent',
-        agreement_token TEXT UNIQUE NOT NULL,
-        envelope_id TEXT,
-        notion_page_url TEXT,
-        stripe_link TEXT,
-        agreement_sent_at TEXT,
-        agreement_signed_at TEXT,
-        welcome_sent_at TEXT,
-        payment_confirmed_at TEXT,
-        onboarding_completed_at TEXT,
-        agreement_reminders_sent INTEGER NOT NULL DEFAULT 0,
-        payment_reminders_sent INTEGER NOT NULL DEFAULT 0,
-        onboarding_reminders_sent INTEGER NOT NULL DEFAULT 0,
-        flagged_to_robi INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )
-    `);
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS email_queue (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        recipient TEXT NOT NULL,
-        subject TEXT NOT NULL,
-        html_body TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'sent', 'failed')),
-        client_id INTEGER,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        sent_at TEXT
-      )
-    `);
-  }
-  return db;
+function getDb() {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error("DATABASE_URL must be set");
+  return neon(url);
 }
 
-export interface QueuedEmail {
-  id: number;
-  recipient: string;
-  subject: string;
-  html_body: string;
-  status: "pending" | "sent" | "failed";
-  client_id: number | null;
-  created_at: string;
-  sent_at: string | null;
-}
-
-export function queueEmail(recipient: string, subject: string, htmlBody: string, clientId?: number): QueuedEmail {
-  const db = getDb();
-  const result = db.prepare(
-    "INSERT INTO email_queue (recipient, subject, html_body, client_id) VALUES (?, ?, ?, ?)"
-  ).run(recipient, subject, htmlBody, clientId || null);
-  return db.prepare("SELECT * FROM email_queue WHERE id = ?").get(result.lastInsertRowid) as QueuedEmail;
-}
-
-export function getPendingEmails(): QueuedEmail[] {
-  const db = getDb();
-  return db.prepare("SELECT * FROM email_queue WHERE status = 'pending' ORDER BY created_at ASC").all() as QueuedEmail[];
-}
-
-export function markEmailSent(id: number): void {
-  const db = getDb();
-  db.prepare("UPDATE email_queue SET status = 'sent', sent_at = datetime('now') WHERE id = ?").run(id);
-}
-
-export function markEmailFailed(id: number): void {
-  const db = getDb();
-  db.prepare("UPDATE email_queue SET status = 'failed' WHERE id = ?").run(id);
+export async function initDb() {
+  const sql = getDb();
+  await sql`
+    CREATE TABLE IF NOT EXISTS clients (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      business_name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      plan TEXT NOT NULL CHECK(plan IN ('growth', 'elite')),
+      status TEXT NOT NULL DEFAULT 'agreement_sent',
+      agreement_token TEXT UNIQUE NOT NULL,
+      envelope_id TEXT,
+      notion_page_url TEXT,
+      stripe_link TEXT,
+      agreement_sent_at TIMESTAMPTZ,
+      agreement_signed_at TIMESTAMPTZ,
+      welcome_sent_at TIMESTAMPTZ,
+      payment_confirmed_at TIMESTAMPTZ,
+      onboarding_completed_at TIMESTAMPTZ,
+      agreement_reminders_sent INTEGER NOT NULL DEFAULT 0,
+      payment_reminders_sent INTEGER NOT NULL DEFAULT 0,
+      onboarding_reminders_sent INTEGER NOT NULL DEFAULT 0,
+      flagged_to_robi INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 }
 
 export type ClientStatus =
@@ -116,54 +67,53 @@ export interface Client {
   updated_at: string;
 }
 
-export function createClient(
+export async function createClient(
   name: string,
   businessName: string,
   email: string,
   plan: "growth" | "elite",
   agreementToken: string
-): Client {
-  const db = getDb();
+): Promise<Client> {
+  const sql = getDb();
   const stripeLink =
     plan === "growth"
       ? process.env.GROWTH_STRIPE_LINK || "GROWTH_STRIPE_LINK"
       : process.env.ELITE_STRIPE_LINK || "ELITE_STRIPE_LINK";
 
-  const stmt = db.prepare(`
+  const rows = await sql`
     INSERT INTO clients (name, business_name, email, plan, agreement_token, stripe_link, agreement_sent_at)
-    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
-  `);
-  const result = stmt.run(name, businessName, email, plan, agreementToken, stripeLink);
-  return getClientById(result.lastInsertRowid as number)!;
+    VALUES (${name}, ${businessName}, ${email}, ${plan}, ${agreementToken}, ${stripeLink}, NOW())
+    RETURNING *
+  `;
+  return rows[0] as Client;
 }
 
-export function getClientById(id: number): Client | undefined {
-  const db = getDb();
-  return db.prepare("SELECT * FROM clients WHERE id = ?").get(id) as Client | undefined;
+export async function getClientById(id: number): Promise<Client | undefined> {
+  const sql = getDb();
+  const rows = await sql`SELECT * FROM clients WHERE id = ${id}`;
+  return rows[0] as Client | undefined;
 }
 
-export function getClientByToken(token: string): Client | undefined {
-  const db = getDb();
-  return db
-    .prepare("SELECT * FROM clients WHERE agreement_token = ?")
-    .get(token) as Client | undefined;
+export async function getClientByToken(token: string): Promise<Client | undefined> {
+  const sql = getDb();
+  const rows = await sql`SELECT * FROM clients WHERE agreement_token = ${token}`;
+  return rows[0] as Client | undefined;
 }
 
-export function getAllClients(): Client[] {
-  const db = getDb();
-  return db
-    .prepare("SELECT * FROM clients ORDER BY created_at DESC")
-    .all() as Client[];
+export async function getAllClients(): Promise<Client[]> {
+  const sql = getDb();
+  const rows = await sql`SELECT * FROM clients ORDER BY created_at DESC`;
+  return rows as Client[];
 }
 
-export function deleteClient(id: number): boolean {
-  const db = getDb();
-  const result = db.prepare("DELETE FROM clients WHERE id = ?").run(id);
-  return result.changes > 0;
+export async function deleteClient(id: number): Promise<boolean> {
+  const sql = getDb();
+  const rows = await sql`DELETE FROM clients WHERE id = ${id} RETURNING id`;
+  return rows.length > 0;
 }
 
-export function updateClientStatus(id: number, status: ClientStatus): Client | undefined {
-  const db = getDb();
+export async function updateClientStatus(id: number, status: ClientStatus): Promise<Client | undefined> {
+  const sql = getDb();
   const timestampCol: Record<string, string> = {
     agreement_signed: "agreement_signed_at",
     welcome_sent: "welcome_sent_at",
@@ -172,101 +122,82 @@ export function updateClientStatus(id: number, status: ClientStatus): Client | u
   };
   const col = timestampCol[status];
   if (col) {
-    db.prepare(
-      `UPDATE clients SET status = ?, ${col} = datetime('now'), updated_at = datetime('now') WHERE id = ?`
-    ).run(status, id);
+    await sql(`UPDATE clients SET status = $1, ${col} = NOW(), updated_at = NOW() WHERE id = $2`, [status, id]);
   } else {
-    db.prepare(
-      "UPDATE clients SET status = ?, updated_at = datetime('now') WHERE id = ?"
-    ).run(status, id);
+    await sql`UPDATE clients SET status = ${status}, updated_at = NOW() WHERE id = ${id}`;
   }
   return getClientById(id);
 }
 
-export function updateClientNotionUrl(id: number, url: string): void {
-  const db = getDb();
-  db.prepare(
-    "UPDATE clients SET notion_page_url = ?, updated_at = datetime('now') WHERE id = ?"
-  ).run(url, id);
+export async function updateClientNotionUrl(id: number, url: string): Promise<void> {
+  const sql = getDb();
+  await sql`UPDATE clients SET notion_page_url = ${url}, updated_at = NOW() WHERE id = ${id}`;
 }
 
-export function updateClientEnvelopeId(id: number, envelopeId: string): void {
-  const db = getDb();
-  db.prepare(
-    "UPDATE clients SET envelope_id = ?, updated_at = datetime('now') WHERE id = ?"
-  ).run(envelopeId, id);
+export async function updateClientEnvelopeId(id: number, envelopeId: string): Promise<void> {
+  const sql = getDb();
+  await sql`UPDATE clients SET envelope_id = ${envelopeId}, updated_at = NOW() WHERE id = ${id}`;
 }
 
-export function getClientByEnvelopeId(envelopeId: string): Client | undefined {
-  const db = getDb();
-  return db
-    .prepare("SELECT * FROM clients WHERE envelope_id = ?")
-    .get(envelopeId) as Client | undefined;
+export async function getClientByEnvelopeId(envelopeId: string): Promise<Client | undefined> {
+  const sql = getDb();
+  const rows = await sql`SELECT * FROM clients WHERE envelope_id = ${envelopeId}`;
+  return rows[0] as Client | undefined;
 }
 
-export function incrementReminderCount(
-  id: number,
-  type: "agreement" | "payment" | "onboarding"
-): void {
-  const db = getDb();
+export async function incrementReminderCount(id: number, type: "agreement" | "payment" | "onboarding"): Promise<void> {
+  const sql = getDb();
   const col = `${type}_reminders_sent`;
-  db.prepare(
-    `UPDATE clients SET ${col} = ${col} + 1, updated_at = datetime('now') WHERE id = ?`
-  ).run(id);
+  await sql(`UPDATE clients SET ${col} = ${col} + 1, updated_at = NOW() WHERE id = $1`, [id]);
 }
 
-export function flagClient(id: number): void {
-  const db = getDb();
-  db.prepare(
-    "UPDATE clients SET flagged_to_robi = 1, updated_at = datetime('now') WHERE id = ?"
-  ).run(id);
+export async function flagClient(id: number): Promise<void> {
+  const sql = getDb();
+  await sql`UPDATE clients SET flagged_to_robi = 1, updated_at = NOW() WHERE id = ${id}`;
 }
 
-/** Get clients needing agreement follow-ups */
-export function getClientsNeedingAgreementReminder(): Client[] {
-  const db = getDb();
-  return db.prepare(`
+export async function getClientsNeedingAgreementReminder(): Promise<Client[]> {
+  const sql = getDb();
+  return await sql`
     SELECT * FROM clients
     WHERE status = 'agreement_sent'
       AND flagged_to_robi = 0
       AND (
-        (agreement_reminders_sent = 0 AND datetime(agreement_sent_at, '+2 days') <= datetime('now'))
-        OR (agreement_reminders_sent = 1 AND datetime(agreement_sent_at, '+4 days') <= datetime('now'))
-        OR (agreement_reminders_sent = 2 AND datetime(agreement_sent_at, '+7 days') <= datetime('now'))
+        (agreement_reminders_sent = 0 AND agreement_sent_at + INTERVAL '2 days' <= NOW())
+        OR (agreement_reminders_sent = 1 AND agreement_sent_at + INTERVAL '4 days' <= NOW())
+        OR (agreement_reminders_sent = 2 AND agreement_sent_at + INTERVAL '7 days' <= NOW())
       )
-  `).all() as Client[];
+  ` as Client[];
 }
 
-/** Get clients needing payment follow-ups */
-export function getClientsNeedingPaymentReminder(): Client[] {
-  const db = getDb();
-  return db.prepare(`
+export async function getClientsNeedingPaymentReminder(): Promise<Client[]> {
+  const sql = getDb();
+  return await sql`
     SELECT * FROM clients
     WHERE status IN ('welcome_sent')
       AND payment_confirmed_at IS NULL
       AND flagged_to_robi = 0
       AND welcome_sent_at IS NOT NULL
       AND (
-        (payment_reminders_sent = 0 AND datetime(welcome_sent_at, '+2 days') <= datetime('now'))
-        OR (payment_reminders_sent = 1 AND datetime(welcome_sent_at, '+4 days') <= datetime('now'))
-        OR (payment_reminders_sent = 2 AND datetime(welcome_sent_at, '+7 days') <= datetime('now'))
+        (payment_reminders_sent = 0 AND welcome_sent_at + INTERVAL '2 days' <= NOW())
+        OR (payment_reminders_sent = 1 AND welcome_sent_at + INTERVAL '4 days' <= NOW())
+        OR (payment_reminders_sent = 2 AND welcome_sent_at + INTERVAL '7 days' <= NOW())
       )
-  `).all() as Client[];
+  ` as Client[];
 }
 
-/** Get clients needing onboarding form follow-ups */
-export function getClientsNeedingOnboardingReminder(): Client[] {
-  const db = getDb();
-  return db.prepare(`
+export async function getClientsNeedingOnboardingReminder(): Promise<Client[]> {
+  const sql = getDb();
+  return await sql`
     SELECT * FROM clients
     WHERE status = 'payment_confirmed'
       AND onboarding_completed_at IS NULL
       AND flagged_to_robi = 0
       AND payment_confirmed_at IS NOT NULL
       AND (
-        (onboarding_reminders_sent = 0 AND datetime(payment_confirmed_at, '+3 days') <= datetime('now'))
-        OR (onboarding_reminders_sent = 1 AND datetime(payment_confirmed_at, '+6 days') <= datetime('now'))
-        OR (onboarding_reminders_sent = 2 AND datetime(payment_confirmed_at, '+10 days') <= datetime('now'))
+        (onboarding_reminders_sent = 0 AND payment_confirmed_at + INTERVAL '3 days' <= NOW())
+        OR (onboarding_reminders_sent = 1 AND payment_confirmed_at + INTERVAL '6 days' <= NOW())
+        OR (onboarding_reminders_sent = 2 AND payment_confirmed_at + INTERVAL '10 days' <= NOW())
       )
-  `).all() as Client[];
+  ` as Client[];
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getClientById, updateClientStatus, deleteClient } from "@/lib/db";
+import { initDb, getClientById, updateClientStatus, deleteClient } from "@/lib/db";
 import { sendEmail } from "@/lib/mailer";
 import type { ClientStatus } from "@/lib/db";
 
@@ -7,8 +7,9 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  await initDb();
   const { id } = await params;
-  const client = getClientById(Number(id));
+  const client = await getClientById(Number(id));
   if (!client) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(client);
 }
@@ -17,6 +18,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  await initDb();
   const { id } = await params;
   const body = await req.json();
   const { status } = body as { status: ClientStatus };
@@ -33,7 +35,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
 
-  let client = updateClientStatus(Number(id), status);
+  let client = await updateClientStatus(Number(id), status);
   if (!client) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Auto-complete: when BOTH payment AND onboarding are done
@@ -43,8 +45,8 @@ export async function PATCH(
     (status === "onboarding_complete" && client.payment_confirmed_at)
   ) {
     // Both are done — auto-mark complete and notify Robi
-    updateClientStatus(client.id, "complete");
-    client = getClientById(client.id)!;
+    await updateClientStatus(client.id, "complete");
+    client = (await getClientById(client.id))!;
 
     const teamEmail = process.env.TEAM_EMAIL || "zenoscale@gmail.com";
     const planName = client.plan === "elite" ? "Elite" : "Growth";
@@ -92,8 +94,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  await initDb();
   const { id } = await params;
-  const deleted = deleteClient(Number(id));
+  const deleted = await deleteClient(Number(id));
   if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ success: true });
 }

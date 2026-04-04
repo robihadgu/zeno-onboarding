@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  initDb,
   getClientByToken,
   getClientById,
   updateClientStatus,
@@ -7,50 +8,39 @@ import {
 } from "@/lib/db";
 import { welcomeEmailHtml, teamNotificationHtml } from "@/lib/email";
 import { sendEmail } from "@/lib/mailer";
-import { duplicateOnboardingPage } from "@/lib/notion";
+
+const ONBOARDING_URL = "https://zenoautomation.ai/onboarding";
 
 export async function POST(req: NextRequest) {
   try {
+    await initDb();
     const body = await req.json();
     const { token, clientId } = body as { token?: string; clientId?: number };
 
     let client = token
-      ? getClientByToken(token)
+      ? await getClientByToken(token)
       : clientId
-        ? getClientById(clientId)
+        ? await getClientById(clientId)
         : undefined;
 
     if (!client) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    // Step 1: Mark agreement as signed immediately
-    updateClientStatus(client.id, "agreement_signed");
+    // Step 1: Mark agreement as signed
+    await updateClientStatus(client.id, "agreement_signed");
 
-    // Return response right away — do heavy work in background
     const clientSnapshot = { ...client };
 
-    // Background: Notion + emails (non-blocking)
+    // Background: send welcome email + notify team (non-blocking)
     (async () => {
       try {
-        // Step 2: Duplicate Notion onboarding template
-        let notionUrl: string;
-        try {
-          notionUrl = await duplicateOnboardingPage(
-            clientSnapshot.business_name,
-            clientSnapshot.name,
-            clientSnapshot.plan
-          );
-          updateClientNotionUrl(clientSnapshot.id, notionUrl);
-        } catch (err) {
-          console.error("[Notion] Failed to duplicate template:", err);
-          notionUrl = `https://notion.so/onboarding-${clientSnapshot.id}`;
-          updateClientNotionUrl(clientSnapshot.id, notionUrl);
-        }
+        // Store onboarding link
+        await updateClientNotionUrl(clientSnapshot.id, ONBOARDING_URL);
 
-        // Step 3: Send welcome email
+        // Send welcome email with Stripe link + onboarding link
         const stripeLink = clientSnapshot.stripe_link || "#";
-        const welcomeHtml = welcomeEmailHtml(clientSnapshot, stripeLink, notionUrl);
+        const welcomeHtml = welcomeEmailHtml(clientSnapshot, stripeLink, ONBOARDING_URL);
 
         sendEmail(
           clientSnapshot.email,
@@ -58,10 +48,10 @@ export async function POST(req: NextRequest) {
           welcomeHtml
         ).catch((err) => console.error(`[Welcome] Error:`, err));
 
-        // Step 4: Update status
-        updateClientStatus(clientSnapshot.id, "welcome_sent");
+        // Update status
+        await updateClientStatus(clientSnapshot.id, "welcome_sent");
 
-        // Step 5: Notify team
+        // Notify team
         const teamEmail = process.env.TEAM_EMAIL || "zenoscale@gmail.com";
         const notifHtml = teamNotificationHtml(clientSnapshot);
 
@@ -75,7 +65,7 @@ export async function POST(req: NextRequest) {
       }
     })();
 
-    client = getClientById(client.id)!;
+    client = await getClientById(client.id)!;
     return NextResponse.json(client);
   } catch (err) {
     console.error("Agreement-signed error:", err);

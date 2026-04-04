@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import { createClient, updateClientEnvelopeId } from "@/lib/db";
+import { initDb, createClient, updateClientEnvelopeId } from "@/lib/db";
 import { sendAgreementEnvelope } from "@/lib/docusign";
 
 export async function POST(req: NextRequest) {
   try {
+    await initDb();
     const { name, businessName, email, plan } = await req.json();
 
     if (!name || !businessName || !email || !plan) {
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
     }
 
     const token = uuidv4();
-    const client = createClient(name, businessName, email, plan, token);
+    const client = await createClient(name, businessName, email, plan, token);
 
     // Send DocuSign envelope in background — don't block the response
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
           client.plan,
           callbackUrl
         );
-        updateClientEnvelopeId(client.id, envelopeId);
+        await updateClientEnvelopeId(client.id, envelopeId);
         console.log(`[Onboard] DocuSign envelope ${envelopeId} sent to ${client.email}`);
       } catch (err) {
         console.error(`[Onboard] DocuSign failed:`, err);

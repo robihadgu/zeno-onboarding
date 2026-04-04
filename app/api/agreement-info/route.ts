@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getClientByToken } from "@/lib/db";
+import { initDb, getClientByToken } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
+  await initDb();
   const token = req.nextUrl.searchParams.get("token");
 
   if (!token) {
     return NextResponse.json({ error: "Missing token" }, { status: 400 });
   }
 
-  const client = getClientByToken(token);
+  const client = await getClientByToken(token);
   if (!client) {
     return NextResponse.json({ error: "Agreement not found or link has expired." }, { status: 404 });
   }

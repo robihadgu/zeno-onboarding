@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  initDb,
   getClientsNeedingAgreementReminder,
   getClientsNeedingPaymentReminder,
   getClientsNeedingOnboardingReminder,
@@ -21,11 +22,12 @@ import { sendEmail } from "@/lib/mailer";
  * GET /api/follow-ups — check and send all due follow-ups
  */
 export async function GET() {
+  await initDb();
   const results: { type: string; client: string; action: string }[] = [];
   const teamEmail = process.env.TEAM_EMAIL || "zenoscale@gmail.com";
 
   // ── Agreement reminders (Day 2, 4, 7) ──
-  const agreementClients = getClientsNeedingAgreementReminder();
+  const agreementClients = await getClientsNeedingAgreementReminder();
   for (const client of agreementClients) {
     const reminderNum = client.agreement_reminders_sent + 1;
 
@@ -41,7 +43,7 @@ export async function GET() {
             ? "Reminder: Your Zeno Automation Service Agreement"
             : "Friendly Reminder: Service Agreement Awaiting Signature";
         await sendEmail(client.email, subject, html);
-        incrementReminderCount(client.id, "agreement");
+        await incrementReminderCount(client.id, "agreement");
         results.push({ type: "agreement", client: client.business_name, action: `Reminder ${reminderNum} sent` });
       } else {
         // Final reminder to client + flag to Robi
@@ -51,15 +53,15 @@ export async function GET() {
         const flagHtml = flagToRobiHtml(client, "agreement");
         await sendEmail(teamEmail, `Action Required: ${client.business_name} — Agreement Not Signed`, flagHtml);
 
-        incrementReminderCount(client.id, "agreement");
-        flagClient(client.id);
+        await incrementReminderCount(client.id, "agreement");
+        await flagClient(client.id);
         results.push({ type: "agreement", client: client.business_name, action: "Final reminder + flagged to Robi" });
       }
     }
   }
 
   // ── Payment reminders (Day 2, 4, 7 after signing) ──
-  const paymentClients = getClientsNeedingPaymentReminder();
+  const paymentClients = await getClientsNeedingPaymentReminder();
   for (const client of paymentClients) {
     const reminderNum = client.payment_reminders_sent + 1;
     const stripeLink = client.stripe_link || "#";
@@ -72,7 +74,7 @@ export async function GET() {
             ? "Reminder: Complete Your Payment — Zeno Automation"
             : "Your Payment is Still Pending — Zeno Automation";
         await sendEmail(client.email, subject, html);
-        incrementReminderCount(client.id, "payment");
+        await incrementReminderCount(client.id, "payment");
         results.push({ type: "payment", client: client.business_name, action: `Reminder ${reminderNum} sent` });
       } else {
         const html = paymentReminderHtml(client, stripeLink, 3);
@@ -81,18 +83,18 @@ export async function GET() {
         const flagHtml = flagToRobiHtml(client, "payment");
         await sendEmail(teamEmail, `Action Required: ${client.business_name} — Payment Not Received`, flagHtml);
 
-        incrementReminderCount(client.id, "payment");
-        flagClient(client.id);
+        await incrementReminderCount(client.id, "payment");
+        await flagClient(client.id);
         results.push({ type: "payment", client: client.business_name, action: "Final reminder + flagged to Robi" });
       }
     }
   }
 
   // ── Onboarding form reminders (Day 3, 6, 10 after payment) ──
-  const onboardingClients = getClientsNeedingOnboardingReminder();
+  const onboardingClients = await getClientsNeedingOnboardingReminder();
   for (const client of onboardingClients) {
     const reminderNum = client.onboarding_reminders_sent + 1;
-    const notionLink = client.notion_page_url || "#";
+    const notionLink = "https://zenoautomation.ai/onboarding";
 
     if (reminderNum <= 3) {
       if (reminderNum < 3) {
@@ -102,7 +104,7 @@ export async function GET() {
             ? "Reminder: Complete Your Onboarding Form — Zeno Automation"
             : "Your Onboarding Form is Waiting — Zeno Automation";
         await sendEmail(client.email, subject, html);
-        incrementReminderCount(client.id, "onboarding");
+        await incrementReminderCount(client.id, "onboarding");
         results.push({ type: "onboarding", client: client.business_name, action: `Reminder ${reminderNum} sent` });
       } else {
         const html = onboardingReminderHtml(client, notionLink, 3);
@@ -111,8 +113,8 @@ export async function GET() {
         const flagHtml = flagToRobiHtml(client, "onboarding");
         await sendEmail(teamEmail, `Action Required: ${client.business_name} — Onboarding Form Incomplete`, flagHtml);
 
-        incrementReminderCount(client.id, "onboarding");
-        flagClient(client.id);
+        await incrementReminderCount(client.id, "onboarding");
+        await flagClient(client.id);
         results.push({ type: "onboarding", client: client.business_name, action: "Final reminder + flagged to Robi" });
       }
     }

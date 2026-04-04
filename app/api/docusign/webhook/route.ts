@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getClientByEnvelopeId } from "@/lib/db";
+import { initDb, getClientByEnvelopeId } from "@/lib/db";
 
 /**
  * DocuSign Connect webhook — called when an envelope status changes.
@@ -7,6 +7,7 @@ import { getClientByEnvelopeId } from "@/lib/db";
  */
 export async function POST(req: NextRequest) {
   try {
+    await initDb();
     const body = await req.text();
     console.log("[DocuSign Webhook] Received:", body.substring(0, 500));
 
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
     console.log(`[DocuSign Webhook] Envelope ${envelopeId} status: ${status}`);
 
     if (status === "completed") {
-      const client = getClientByEnvelopeId(envelopeId);
+      const client = await getClientByEnvelopeId(envelopeId);
 
       if (client && client.status === "agreement_sent") {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";

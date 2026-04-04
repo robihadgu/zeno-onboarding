@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { getAllClients } from "@/lib/db";
+import { initDb, getAllClients } from "@/lib/db";
 
 export async function GET() {
-  const clients = getAllClients();
+  await initDb();
+  const clients = await getAllClients();
   return NextResponse.json(clients);
 }
