@@ -114,17 +114,21 @@ export async function deleteClient(id: number): Promise<boolean> {
 
 export async function updateClientStatus(id: number, status: ClientStatus): Promise<Client | undefined> {
   const sql = getDb();
-  const timestampCol: Record<string, string> = {
-    agreement_signed: "agreement_signed_at",
-    welcome_sent: "welcome_sent_at",
-    payment_confirmed: "payment_confirmed_at",
-    onboarding_complete: "onboarding_completed_at",
-  };
-  const col = timestampCol[status];
-  if (col) {
-    await sql(`UPDATE clients SET status = $1, ${col} = NOW(), updated_at = NOW() WHERE id = $2`, [status, id]);
-  } else {
-    await sql`UPDATE clients SET status = ${status}, updated_at = NOW() WHERE id = ${id}`;
+  switch (status) {
+    case "agreement_signed":
+      await sql`UPDATE clients SET status = ${status}, agreement_signed_at = NOW(), updated_at = NOW() WHERE id = ${id}`;
+      break;
+    case "welcome_sent":
+      await sql`UPDATE clients SET status = ${status}, welcome_sent_at = NOW(), updated_at = NOW() WHERE id = ${id}`;
+      break;
+    case "payment_confirmed":
+      await sql`UPDATE clients SET status = ${status}, payment_confirmed_at = NOW(), updated_at = NOW() WHERE id = ${id}`;
+      break;
+    case "onboarding_complete":
+      await sql`UPDATE clients SET status = ${status}, onboarding_completed_at = NOW(), updated_at = NOW() WHERE id = ${id}`;
+      break;
+    default:
+      await sql`UPDATE clients SET status = ${status}, updated_at = NOW() WHERE id = ${id}`;
   }
   return getClientById(id);
 }
@@ -147,8 +151,17 @@ export async function getClientByEnvelopeId(envelopeId: string): Promise<Client 
 
 export async function incrementReminderCount(id: number, type: "agreement" | "payment" | "onboarding"): Promise<void> {
   const sql = getDb();
-  const col = `${type}_reminders_sent`;
-  await sql(`UPDATE clients SET ${col} = ${col} + 1, updated_at = NOW() WHERE id = $1`, [id]);
+  switch (type) {
+    case "agreement":
+      await sql`UPDATE clients SET agreement_reminders_sent = agreement_reminders_sent + 1, updated_at = NOW() WHERE id = ${id}`;
+      break;
+    case "payment":
+      await sql`UPDATE clients SET payment_reminders_sent = payment_reminders_sent + 1, updated_at = NOW() WHERE id = ${id}`;
+      break;
+    case "onboarding":
+      await sql`UPDATE clients SET onboarding_reminders_sent = onboarding_reminders_sent + 1, updated_at = NOW() WHERE id = ${id}`;
+      break;
+  }
 }
 
 export async function flagClient(id: number): Promise<void> {

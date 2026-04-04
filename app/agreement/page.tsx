@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 interface ClientInfo {
@@ -10,7 +10,15 @@ interface ClientInfo {
   plan: "growth" | "elite";
 }
 
-export default function AgreementPage() {
+export default function AgreementPageWrapper() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: "100vh", background: "#050505", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#666", fontSize: 14 }}>Loading...</p></div>}>
+      <AgreementPageInner />
+    </Suspense>
+  );
+}
+
+function AgreementPageInner() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
