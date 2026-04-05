@@ -7,7 +7,9 @@ import {
 } from "@/lib/db";
 import { sendEmail } from "@/lib/mailer";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY || "");
+}
 
 /**
  * Stripe webhook — auto-confirms payment when client completes checkout.
@@ -26,7 +28,7 @@ export async function POST(req: NextRequest) {
     // Verify signature if webhook secret is configured
     const body = await req.text();
     try {
-      event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
+      event = getStripe().webhooks.constructEvent(body, sig, webhookSecret);
     } catch (err) {
       console.error("[Stripe] Webhook signature verification failed:", err);
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
