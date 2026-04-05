@@ -3,12 +3,12 @@
 import type { ClientStatus } from "@/lib/db";
 
 const config: Record<ClientStatus, { label: string; color: string; bg: string; border: string }> = {
-  agreement_sent:    { label: "Pending",    color: "#EAB308", bg: "rgba(234,179,8,0.08)",  border: "rgba(234,179,8,0.15)" },
-  agreement_signed:  { label: "Signed",     color: "#5E6AD2", bg: "rgba(94,106,210,0.08)", border: "rgba(94,106,210,0.15)" },
-  welcome_sent:      { label: "Welcome",    color: "#A78BFA", bg: "rgba(167,139,250,0.08)",border: "rgba(167,139,250,0.15)" },
-  payment_confirmed: { label: "Paid",       color: "#22C55E", bg: "rgba(34,197,94,0.08)",  border: "rgba(34,197,94,0.15)" },
-  onboarding_complete:{ label: "Onboarded", color: "#22C55E", bg: "rgba(34,197,94,0.12)",  border: "rgba(34,197,94,0.2)" },
-  complete:          { label: "Complete",   color: "#22C55E", bg: "rgba(34,197,94,0.15)",  border: "rgba(34,197,94,0.25)" },
+  agreement_sent:    { label: "Pending",    color: "#999999", bg: "rgba(255,255,255,0.04)",  border: "rgba(255,255,255,0.08)" },
+  agreement_signed:  { label: "Signed",     color: "#E0E0E0", bg: "rgba(255,255,255,0.06)", border: "rgba(255,255,255,0.10)" },
+  welcome_sent:      { label: "Welcome",    color: "#E0E0E0", bg: "rgba(255,255,255,0.06)", border: "rgba(255,255,255,0.10)" },
+  payment_confirmed: { label: "Paid",       color: "#FFFFFF", bg: "rgba(255,255,255,0.08)",  border: "rgba(255,255,255,0.14)" },
+  onboarding_complete:{ label: "Onboarded", color: "#FFFFFF", bg: "rgba(255,255,255,0.10)",  border: "rgba(255,255,255,0.16)" },
+  complete:          { label: "Complete",   color: "#FFFFFF", bg: "rgba(255,255,255,0.12)",  border: "rgba(255,255,255,0.20)" },
 };
 
 export default function StatusBadge({ status }: { status: ClientStatus }) {

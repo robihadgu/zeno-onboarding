@@ -143,7 +143,7 @@ export const FluidParticlesBackground = ({
     }));
 
     const animate = () => {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.06)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       for (const particle of particles) {
@@ -160,12 +160,12 @@ export const FluidParticlesBackground = ({
         const n = noise.simplex3(
           particle.x * noiseIntensity,
           particle.y * noiseIntensity,
-          Date.now() * 0.0001,
+          Date.now() * 0.00003,
         );
 
-        const angle = n * Math.PI * 4;
-        particle.velocity.x = Math.cos(angle) * 2;
-        particle.velocity.y = Math.sin(angle) * 2;
+        const angle = n * Math.PI * 2;
+        particle.velocity.x = Math.cos(angle) * 0.6;
+        particle.velocity.y = Math.sin(angle) * 0.6;
 
         particle.x += particle.velocity.x;
         particle.y += particle.velocity.y;
