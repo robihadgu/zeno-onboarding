@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
-import { DottedSurface } from "@/components/ui/dotted-surface";
+import { FluidParticlesBackground } from "@/components/ui/fluid-particles-background";
 import OnboardingForm from "@/components/OnboardingForm";
 import PipelineView from "@/components/PipelineView";
 import type { Client } from "@/lib/db";
@@ -40,8 +40,10 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* 3D Dotted Surface background */}
-      <DottedSurface />
+      {/* Fluid particles background */}
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
+        <FluidParticlesBackground particleCount={1500} noiseIntensity={0.003} particleSize={{ min: 0.5, max: 1.5 }} className="!h-full" />
+      </div>
 
       {/* Header */}
       <header
