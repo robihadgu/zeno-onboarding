@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-const DOCUSIGN_AUTH_URL = "https://account-d.docusign.com/oauth/token";
+const DOCUSIGN_AUTH_URL = process.env.DOCUSIGN_AUTH_URL || "https://account.docusign.com/oauth/token";
 
 /**
  * Get a DocuSign access token via JWT Grant flow.
@@ -25,7 +25,7 @@ async function getAccessToken(): Promise<string> {
   const jwtPayload = {
     iss: integrationKey,
     sub: userId,
-    aud: "account-d.docusign.com",
+    aud: process.env.DOCUSIGN_AUTH_URL?.includes("account-d") ? "account-d.docusign.com" : "account.docusign.com",
     iat: now,
     exp: now + 3600,
     scope: "signature impersonation",
@@ -95,13 +95,19 @@ export async function sendAgreementEnvelope(
     }
   );
 
+  const responseText = await res.text();
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`DocuSign envelope failed: ${err}`);
+    console.error(`[DocuSign] Envelope creation failed (${res.status}):`, responseText);
+    throw new Error(`DocuSign envelope failed (${res.status}): ${responseText}`);
   }
 
-  const result = await res.json();
-  console.log(`[DocuSign] Envelope sent: ${result.envelopeId} to ${clientEmail}`);
+  const result = JSON.parse(responseText);
+  console.log(`[DocuSign] Envelope created: ${result.envelopeId}, status: ${result.status}, to: ${clientEmail}`);
+
+  if (result.status !== "sent") {
+    console.warn(`[DocuSign] Envelope ${result.envelopeId} status is "${result.status}" instead of "sent" — email may not have been delivered. Check that templateRole "Client" matches your template.`);
+  }
+
   return { envelopeId: result.envelopeId };
 }
 
@@ -112,7 +118,7 @@ export async function sendAgreementEnvelope(
 export async function getEnvelopeStatus(envelopeId: string): Promise<string> {
   const accessToken = await getAccessToken();
   const accountId = process.env.DOCUSIGN_ACCOUNT_ID!;
-  const basePath = process.env.DOCUSIGN_BASE_URL || "https://demo.docusign.net/restapi";
+  const basePath = process.env.DOCUSIGN_BASE_URL || "https://na4.docusign.net/restapi";
 
   const res = await fetch(
     `${basePath}/v2.1/accounts/${accountId}/envelopes/${envelopeId}`,
