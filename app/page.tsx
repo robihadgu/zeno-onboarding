@@ -5,10 +5,13 @@ import Image from "next/image";
 import { FluidParticlesBackground } from "@/components/ui/fluid-particles-background";
 import OnboardingForm from "@/components/OnboardingForm";
 import PipelineView from "@/components/PipelineView";
-import type { Client } from "@/lib/db";
+import LeadsDashboard from "@/components/LeadsDashboard";
+import type { Client, Lead } from "@/lib/db";
 
 export default function Dashboard() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [tab, setTab] = useState<"pipeline" | "leads">("pipeline");
 
   const fetchClients = useCallback(async () => {
     try {
@@ -22,18 +25,22 @@ export default function Dashboard() {
     }
   }, []);
 
+  const fetchLeads = useCallback(async () => {
+    try {
+      const res = await fetch("/api/leads");
+      if (res.ok) {
+        const data = await res.json();
+        setLeads(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch leads:", err);
+    }
+  }, []);
+
   useEffect(() => {
-    // Load clients immediately
     fetchClients();
-
-    // Check signatures in background (don't block page load)
-    fetch("/api/check-signatures").then(() => fetchClients()).catch(() => {});
-
-    const interval = setInterval(() => {
-      fetch("/api/check-signatures").then(() => fetchClients()).catch(() => {});
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [fetchClients]);
+    fetchLeads();
+  }, [fetchClients, fetchLeads]);
 
   const activeCount = clients.filter((c) => c.status !== "complete").length;
   const completeCount = clients.filter((c) => c.status === "complete").length;
@@ -82,17 +89,34 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Badge */}
-            <div
-              className="px-4 py-1.5 rounded-full text-[12px] font-medium tracking-wide uppercase"
-              style={{
-                background: "rgba(255,255,255,0.05)",
-                color: "var(--gray-400)",
-                border: "1px solid var(--border)",
-                letterSpacing: "0.05em",
-              }}
-            >
-              Onboarding Agent
+            {/* Tabs */}
+            <div style={{ display: "flex", gap: 4, background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: 3 }}>
+              <button
+                onClick={() => setTab("pipeline")}
+                className="px-4 py-1.5 rounded-md text-[12px] font-medium tracking-wide uppercase"
+                style={{
+                  background: tab === "pipeline" ? "rgba(255,255,255,0.1)" : "transparent",
+                  color: tab === "pipeline" ? "#fff" : "var(--gray-400)",
+                  border: "none",
+                  cursor: "pointer",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Pipeline
+              </button>
+              <button
+                onClick={() => { setTab("leads"); fetchLeads(); }}
+                className="px-4 py-1.5 rounded-md text-[12px] font-medium tracking-wide uppercase"
+                style={{
+                  background: tab === "leads" ? "rgba(255,255,255,0.1)" : "transparent",
+                  color: tab === "leads" ? "#fff" : "var(--gray-400)",
+                  border: "none",
+                  cursor: "pointer",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Leads {leads.length > 0 && `(${leads.length})`}
+              </button>
             </div>
           </div>
         </div>
@@ -100,12 +124,20 @@ export default function Dashboard() {
 
       {/* Main content */}
       <main className="relative z-10 max-w-[1400px] mx-auto px-6 py-8 space-y-8">
-        <div className="animate-fade-up" style={{ animationDelay: "0.1s" }}>
-          <OnboardingForm onSuccess={fetchClients} />
-        </div>
-        <div className="animate-fade-up" style={{ animationDelay: "0.2s" }}>
-          <PipelineView clients={clients} onRefresh={fetchClients} />
-        </div>
+        {tab === "pipeline" ? (
+          <>
+            <div className="animate-fade-up" style={{ animationDelay: "0.1s" }}>
+              <OnboardingForm onSuccess={fetchClients} />
+            </div>
+            <div className="animate-fade-up" style={{ animationDelay: "0.2s" }}>
+              <PipelineView clients={clients} onRefresh={fetchClients} />
+            </div>
+          </>
+        ) : (
+          <div className="animate-fade-up" style={{ animationDelay: "0.1s" }}>
+            <LeadsDashboard leads={leads} onRefresh={fetchLeads} />
+          </div>
+        )}
       </main>
     </div>
   );

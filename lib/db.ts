@@ -33,6 +33,36 @@ export async function initDb() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS leads (
+      id SERIAL PRIMARY KEY,
+      name TEXT,
+      email TEXT,
+      business_name TEXT,
+      phone TEXT,
+      interest TEXT,
+      source TEXT DEFAULT 'chatbot',
+      score TEXT DEFAULT 'warm' CHECK(score IN ('hot','warm','cold')),
+      status TEXT DEFAULT 'new' CHECK(status IN ('new','contacted','qualified','converted','lost')),
+      notes TEXT,
+      ai_summary TEXT,
+      emails_sent INTEGER NOT NULL DEFAULT 0,
+      last_contacted_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS lead_activities (
+      id SERIAL PRIMARY KEY,
+      lead_id INTEGER NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('email_sent','email_opened','call','note','score_update','status_change')),
+      details TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 }
 
 export type ClientStatus =
@@ -213,4 +243,129 @@ export async function getClientsNeedingOnboardingReminder(): Promise<Client[]> {
         OR (onboarding_reminders_sent = 2 AND payment_confirmed_at + INTERVAL '10 days' <= NOW())
       )
   ` as Client[];
+}
+
+// ── Lead types and functions ──
+
+export interface Lead {
+  id: number;
+  name: string | null;
+  email: string | null;
+  business_name: string | null;
+  phone: string | null;
+  interest: string | null;
+  source: string;
+  score: "hot" | "warm" | "cold";
+  status: "new" | "contacted" | "qualified" | "converted" | "lost";
+  notes: string | null;
+  ai_summary: string | null;
+  emails_sent: number;
+  last_contacted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function createLead(data: {
+  name: string | null;
+  email: string | null;
+  business_name: string | null;
+  interest: string | null;
+  phone?: string | null;
+  source?: string;
+  notes?: string | null;
+}): Promise<Lead> {
+  const sql = getDb();
+  const rows = await sql`
+    INSERT INTO leads (name, email, business_name, phone, interest, source, notes)
+    VALUES (${data.name}, ${data.email}, ${data.business_name}, ${data.phone || null}, ${data.interest}, ${data.source || "chatbot"}, ${data.notes || null})
+    RETURNING *
+  `;
+  return rows[0] as Lead;
+}
+
+export async function getLeadById(id: number): Promise<Lead | undefined> {
+  const sql = getDb();
+  const rows = await sql`SELECT * FROM leads WHERE id = ${id}`;
+  return rows[0] as Lead | undefined;
+}
+
+export async function getAllLeads(): Promise<Lead[]> {
+  const sql = getDb();
+  return await sql`SELECT * FROM leads ORDER BY created_at DESC` as Lead[];
+}
+
+export async function updateLead(id: number, data: Partial<{
+  name: string;
+  email: string;
+  business_name: string;
+  phone: string;
+  interest: string;
+  score: string;
+  status: string;
+  notes: string;
+  ai_summary: string;
+  emails_sent: number;
+  last_contacted_at: string;
+}>): Promise<Lead | undefined> {
+  const sql = getDb();
+
+  if (data.score !== undefined) {
+    await sql`UPDATE leads SET score = ${data.score}, updated_at = NOW() WHERE id = ${id}`;
+  }
+  if (data.status !== undefined) {
+    await sql`UPDATE leads SET status = ${data.status}, updated_at = NOW() WHERE id = ${id}`;
+  }
+  if (data.emails_sent !== undefined) {
+    await sql`UPDATE leads SET emails_sent = ${data.emails_sent}, updated_at = NOW() WHERE id = ${id}`;
+  }
+  if (data.last_contacted_at !== undefined) {
+    await sql`UPDATE leads SET last_contacted_at = ${data.last_contacted_at}, updated_at = NOW() WHERE id = ${id}`;
+  }
+  if (data.ai_summary !== undefined) {
+    await sql`UPDATE leads SET ai_summary = ${data.ai_summary}, updated_at = NOW() WHERE id = ${id}`;
+  }
+  if (data.notes !== undefined) {
+    await sql`UPDATE leads SET notes = ${data.notes}, updated_at = NOW() WHERE id = ${id}`;
+  }
+
+  return getLeadById(id);
+}
+
+export async function deleteLead(id: number): Promise<boolean> {
+  const sql = getDb();
+  const rows = await sql`DELETE FROM leads WHERE id = ${id} RETURNING id`;
+  return rows.length > 0;
+}
+
+export async function getLeadsByScore(score: string): Promise<Lead[]> {
+  const sql = getDb();
+  return await sql`SELECT * FROM leads WHERE score = ${score} ORDER BY created_at DESC` as Lead[];
+}
+
+export async function createLeadActivity(leadId: number, type: string, details: string): Promise<void> {
+  const sql = getDb();
+  await sql`INSERT INTO lead_activities (lead_id, type, details) VALUES (${leadId}, ${type}, ${details})`;
+}
+
+export async function getLeadActivities(leadId: number): Promise<{ id: number; lead_id: number; type: string; details: string; created_at: string }[]> {
+  const sql = getDb();
+  return await sql`SELECT * FROM lead_activities WHERE lead_id = ${leadId} ORDER BY created_at DESC` as any[];
+}
+
+export async function getLeadsNeedingFollowUp(): Promise<Lead[]> {
+  const sql = getDb();
+  return await sql`
+    SELECT * FROM leads
+    WHERE status IN ('new', 'contacted')
+      AND email IS NOT NULL
+      AND (
+        (emails_sent = 0 AND created_at + INTERVAL '1 day' <= NOW())
+        OR (emails_sent = 1 AND last_contacted_at + INTERVAL '3 days' <= NOW())
+        OR (emails_sent = 2 AND last_contacted_at + INTERVAL '7 days' <= NOW())
+      )
+      AND emails_sent < 3
+    ORDER BY
+      CASE score WHEN 'hot' THEN 1 WHEN 'warm' THEN 2 WHEN 'cold' THEN 3 END,
+      created_at ASC
+  ` as Lead[];
 }

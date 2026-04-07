@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/check-signatures",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/follow-ups",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/sales-follow-ups",
+      "schedule": "0 10 * * *"
+    }
+  ]
+}
