@@ -17,9 +17,11 @@ export async function initDb() {
       plan TEXT NOT NULL CHECK(plan IN ('growth', 'elite')),
       status TEXT NOT NULL DEFAULT 'agreement_sent',
       agreement_token TEXT UNIQUE NOT NULL,
-      envelope_id TEXT,
       notion_page_url TEXT,
       stripe_link TEXT,
+      signed_name TEXT,
+      signed_ip TEXT,
+      signed_user_agent TEXT,
       agreement_sent_at TIMESTAMPTZ,
       agreement_signed_at TIMESTAMPTZ,
       welcome_sent_at TIMESTAMPTZ,
@@ -33,6 +35,11 @@ export async function initDb() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  // Migrations for existing databases
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS signed_name TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS signed_ip TEXT`;
+  await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS signed_user_agent TEXT`;
+  await sql`ALTER TABLE clients DROP COLUMN IF EXISTS envelope_id`;
 }
 
 export type ClientStatus =
@@ -51,9 +58,11 @@ export interface Client {
   plan: "growth" | "elite";
   status: ClientStatus;
   agreement_token: string;
-  envelope_id: string | null;
   notion_page_url: string | null;
   stripe_link: string | null;
+  signed_name: string | null;
+  signed_ip: string | null;
+  signed_user_agent: string | null;
   agreement_sent_at: string | null;
   agreement_signed_at: string | null;
   welcome_sent_at: string | null;
@@ -138,15 +147,22 @@ export async function updateClientNotionUrl(id: number, url: string): Promise<vo
   await sql`UPDATE clients SET notion_page_url = ${url}, updated_at = NOW() WHERE id = ${id}`;
 }
 
-export async function updateClientEnvelopeId(id: number, envelopeId: string): Promise<void> {
+export async function markClientSigned(
+  id: number,
+  audit: { signedName: string; signedIp: string | null; signedUserAgent: string | null }
+): Promise<Client | undefined> {
   const sql = getDb();
-  await sql`UPDATE clients SET envelope_id = ${envelopeId}, updated_at = NOW() WHERE id = ${id}`;
-}
-
-export async function getClientByEnvelopeId(envelopeId: string): Promise<Client | undefined> {
-  const sql = getDb();
-  const rows = await sql`SELECT * FROM clients WHERE envelope_id = ${envelopeId}`;
-  return rows[0] as Client | undefined;
+  await sql`
+    UPDATE clients
+    SET status = 'agreement_signed',
+        agreement_signed_at = NOW(),
+        signed_name = ${audit.signedName},
+        signed_ip = ${audit.signedIp},
+        signed_user_agent = ${audit.signedUserAgent},
+        updated_at = NOW()
+    WHERE id = ${id}
+  `;
+  return getClientById(id);
 }
 
 export async function incrementReminderCount(id: number, type: "agreement" | "payment" | "onboarding"): Promise<void> {

@@ -63,7 +63,7 @@ function AgreementPageInner() {
       const res = await fetch("/api/agreement-signed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, signedName: signatureName.trim() }),
       });
       if (!res.ok) throw new Error("Failed to process signature");
       setSigned(true);

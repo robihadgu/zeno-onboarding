@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import { initDb, createClient, updateClientEnvelopeId } from "@/lib/db";
-import { sendAgreementEnvelope } from "@/lib/docusign";
+import { initDb, createClient } from "@/lib/db";
+import { agreementEmailHtml } from "@/lib/email";
+import { sendEmail } from "@/lib/mailer";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,24 +20,20 @@ export async function POST(req: NextRequest) {
     const token = uuidv4();
     const client = await createClient(name, businessName, email, plan, token);
 
-    // Send DocuSign envelope in background — don't block the response
+    // Send agreement email in background — don't block the response
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const callbackUrl = `${appUrl}/api/docusign/webhook`;
+    const agreementLink = `${appUrl}/agreement?token=${token}`;
 
     (async () => {
       try {
-        const { envelopeId } = await sendAgreementEnvelope(
-          client.name,
+        await sendEmail(
           client.email,
-          client.business_name,
-          client.plan,
-          callbackUrl
+          "Your Zeno Automation Service Agreement",
+          agreementEmailHtml(client, agreementLink)
         );
-        await updateClientEnvelopeId(client.id, envelopeId);
-        console.log(`[Onboard] DocuSign envelope ${envelopeId} sent to ${client.email}`);
+        console.log(`[Onboard] Agreement email sent to ${client.email}`);
       } catch (err) {
-        console.error(`[Onboard] DocuSign failed:`, err);
-        // DocuSign failed — log the error. Client is still created in pipeline.
+        console.error(`[Onboard] Agreement email failed:`, err);
       }
     })();
 

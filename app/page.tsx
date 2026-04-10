@@ -23,15 +23,9 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    // Load clients immediately
+    // Load clients immediately, then poll
     fetchClients();
-
-    // Check signatures in background (don't block page load)
-    fetch("/api/check-signatures").then(() => fetchClients()).catch(() => {});
-
-    const interval = setInterval(() => {
-      fetch("/api/check-signatures").then(() => fetchClients()).catch(() => {});
-    }, 30000);
+    const interval = setInterval(fetchClients, 30000);
     return () => clearInterval(interval);
   }, [fetchClients]);
 

@@ -3,6 +3,7 @@ import {
   initDb,
   getClientByToken,
   getClientById,
+  markClientSigned,
   updateClientStatus,
   updateClientNotionUrl,
 } from "@/lib/db";
@@ -15,20 +16,30 @@ export async function POST(req: NextRequest) {
   try {
     await initDb();
     const body = await req.json();
-    const { token, clientId } = body as { token?: string; clientId?: number };
+    const { token, signedName } = body as { token?: string; signedName?: string };
 
-    let client = token
-      ? await getClientByToken(token)
-      : clientId
-        ? await getClientById(clientId)
-        : undefined;
+    if (!token) {
+      return NextResponse.json({ error: "Missing token" }, { status: 400 });
+    }
+    if (!signedName || !signedName.trim()) {
+      return NextResponse.json({ error: "Signature name is required" }, { status: 400 });
+    }
 
+    const client = await getClientByToken(token);
     if (!client) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    // Step 1: Mark agreement as signed
-    await updateClientStatus(client.id, "agreement_signed");
+    // Capture audit trail: typed name, IP, user-agent, timestamp
+    const forwardedFor = req.headers.get("x-forwarded-for");
+    const signedIp = forwardedFor ? forwardedFor.split(",")[0].trim() : null;
+    const signedUserAgent = req.headers.get("user-agent");
+
+    await markClientSigned(client.id, {
+      signedName: signedName.trim(),
+      signedIp,
+      signedUserAgent,
+    });
 
     const clientSnapshot = { ...client };
 
@@ -65,8 +76,8 @@ export async function POST(req: NextRequest) {
       }
     })();
 
-    client = await getClientById(client.id)!;
-    return NextResponse.json(client);
+    const updated = await getClientById(client.id);
+    return NextResponse.json(updated);
   } catch (err) {
     console.error("Agreement-signed error:", err);
     return NextResponse.json(

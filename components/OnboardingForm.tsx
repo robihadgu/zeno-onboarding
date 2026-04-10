@@ -59,7 +59,7 @@ export default function OnboardingForm({ onSuccess }: Props) {
         <div>
           <h2 className="text-[15px] font-semibold text-white tracking-[-0.3px]">New Client Onboarding</h2>
           <p className="text-[12px] mt-0.5" style={{ color: "var(--gray-600)" }}>
-            Enter client details to send a DocuSign agreement
+            Enter client details to send a service agreement
           </p>
         </div>
       </div>
