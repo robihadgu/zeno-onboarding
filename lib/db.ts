@@ -142,11 +142,6 @@ export async function updateClientStatus(id: number, status: ClientStatus): Prom
   return getClientById(id);
 }
 
-export async function updateClientNotionUrl(id: number, url: string): Promise<void> {
-  const sql = getDb();
-  await sql`UPDATE clients SET notion_page_url = ${url}, updated_at = NOW() WHERE id = ${id}`;
-}
-
 export async function markClientSigned(
   id: number,
   audit: { signedName: string; signedIp: string | null; signedUserAgent: string | null }

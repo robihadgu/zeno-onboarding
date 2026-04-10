@@ -37,6 +37,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
+    // Only accept onboarding completion from clients who have at least signed the agreement.
+    // Prevents status jumps from agreement_sent → onboarding_complete.
+    const allowedPriorStatuses = [
+      "agreement_signed",
+      "welcome_sent",
+      "payment_confirmed",
+      "onboarding_complete", // idempotent re-submit
+    ];
+    if (!allowedPriorStatuses.includes(client.status)) {
+      console.log(
+        `[Onboarding Webhook] ${client.business_name} is in status '${client.status}' — refusing to mark onboarding complete`
+      );
+      return NextResponse.json(
+        { error: "Client has not yet signed the agreement" },
+        { status: 409 }
+      );
+    }
+
     console.log(`[Onboarding Webhook] ${client.business_name} (${email}) completed onboarding`);
 
     // Mark onboarding as complete

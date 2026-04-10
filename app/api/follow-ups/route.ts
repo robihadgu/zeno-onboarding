@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   initDb,
   getClientsNeedingAgreementReminder,
@@ -14,14 +14,18 @@ import {
   flagToRobiHtml,
 } from "@/lib/email";
 import { sendEmail } from "@/lib/mailer";
+import { requireCron } from "@/lib/auth";
 
 /**
- * Follow-up checker — runs on a schedule (called by cron or setInterval).
- * Checks for clients who need reminders and sends them.
+ * Follow-up checker — runs on a schedule (called by Vercel Cron).
+ * Protected by CRON_SECRET: only Vercel Cron (or manual callers with the secret) can trigger.
  *
  * GET /api/follow-ups — check and send all due follow-ups
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const unauthorized = requireCron(req);
+  if (unauthorized) return unauthorized;
+
   await initDb();
   const results: { type: string; client: string; action: string }[] = [];
   const teamEmail = process.env.TEAM_EMAIL || "zenoscale@gmail.com";

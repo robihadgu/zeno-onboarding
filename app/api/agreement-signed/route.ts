@@ -5,7 +5,6 @@ import {
   getClientById,
   markClientSigned,
   updateClientStatus,
-  updateClientNotionUrl,
 } from "@/lib/db";
 import { welcomeEmailHtml, teamNotificationHtml } from "@/lib/email";
 import { sendEmail } from "@/lib/mailer";
@@ -46,9 +45,6 @@ export async function POST(req: NextRequest) {
     // Background: send welcome email + notify team (non-blocking)
     (async () => {
       try {
-        // Store onboarding link
-        await updateClientNotionUrl(clientSnapshot.id, ONBOARDING_URL);
-
         // Send welcome email with Stripe link + onboarding link
         const stripeLink = clientSnapshot.stripe_link || "#";
         const welcomeHtml = welcomeEmailHtml(clientSnapshot, stripeLink, ONBOARDING_URL);

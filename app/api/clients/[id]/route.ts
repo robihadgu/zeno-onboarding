@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initDb, getClientById, updateClientStatus, deleteClient } from "@/lib/db";
 import { sendEmail } from "@/lib/mailer";
+import { requireAdmin } from "@/lib/auth";
 import type { ClientStatus } from "@/lib/db";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const unauthorized = requireAdmin(req);
+  if (unauthorized) return unauthorized;
+
   await initDb();
   const { id } = await params;
   const client = await getClientById(Number(id));
@@ -18,6 +22,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const unauthorized = requireAdmin(req);
+  if (unauthorized) return unauthorized;
+
   await initDb();
   const { id } = await params;
   const body = await req.json();
@@ -71,7 +78,6 @@ export async function PATCH(
             <tr><td style="padding: 10px 0; color: #888; font-size: 14px; border-bottom: 1px solid #f0f0f0;">Payment</td><td style="padding: 10px 0; color: #22C55E; font-weight: 600; font-size: 14px; border-bottom: 1px solid #f0f0f0;">Paid &#10003;</td></tr>
             <tr><td style="padding: 10px 0; color: #888; font-size: 14px;">Onboarding</td><td style="padding: 10px 0; color: #22C55E; font-weight: 600; font-size: 14px;">Completed &#10003;</td></tr>
           </table>
-          ${client.notion_page_url ? `<p style="margin: 20px 0 0; font-size: 14px;"><a href="${client.notion_page_url}" style="color: #5E6AD2; text-decoration: none; font-weight: 600;">View Onboarding Form &rarr;</a></p>` : ""}
           <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
           <p style="color: #333; font-size: 15px; font-weight: 600;">Time to start building their system!</p>
         </div>
@@ -91,9 +97,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const unauthorized = requireAdmin(req);
+  if (unauthorized) return unauthorized;
+
   await initDb();
   const { id } = await params;
   const deleted = await deleteClient(Number(id));
