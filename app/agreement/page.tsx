@@ -29,6 +29,7 @@ function AgreementPageInner() {
   const [signing, setSigning] = useState(false);
   const [signed, setSigned] = useState(false);
   const [error, setError] = useState("");
+  const [featuresOpen, setFeaturesOpen] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -116,6 +117,35 @@ function AgreementPageInner() {
   const planName = isElite ? "Elite" : "Growth";
   const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
+  const planTagline = isElite
+    ? "Replace your front desk. Scale without hiring."
+    : "Stop losing leads. Start capturing every opportunity.";
+  const planSubtitle = isElite
+    ? "Built for growing businesses that want a full AI operations layer — not just tools, but a system."
+    : "Built for solo operators and small shops that need the essentials running 24/7.";
+
+  const growthFeatures: { title: string; desc: string }[] = [
+    { title: "Missed Call Text-Back", desc: "every missed call gets an instant SMS so leads don't bounce to competitors" },
+    { title: "AI Receptionist (basic)", desc: "answers FAQs, books appointments, collects lead info 24/7" },
+    { title: "Lead Nurture Sequences", desc: "7-day SMS + email follow-up for every new lead" },
+    { title: "Reviews Automation", desc: "auto-request Google reviews after every appointment" },
+    { title: "Booking Calendar Integration", desc: "syncs to your existing calendar (GHL, Calendly, Acuity)" },
+    { title: "Basic Reporting Dashboard", desc: "see leads captured, calls answered, reviews collected" },
+    { title: "Email support", desc: "48hr response" },
+  ];
+
+  const eliteExtraFeatures: { title: string; desc: string }[] = [
+    { title: "Full AI Voice Receptionist", desc: "human-sounding AI that answers every call, handles bookings, reschedules, pricing questions, objections, and transfers hot leads live to you" },
+    { title: "Advanced Lead Nurture", desc: "multi-channel (SMS + email + voicemail drops), behavior-triggered, up to 30 days" },
+    { title: "Database Reactivation Campaigns", desc: "wake up old leads and past clients automatically (usually pays for 6+ months in the first 30 days)" },
+    { title: "No-Show & Reschedule Automation", desc: "AI calls/texts no-shows, rebooks them, protects your calendar" },
+    { title: "Custom AI Knowledge Base", desc: "trained on your services, pricing, policies, and brand voice" },
+    { title: "Pipeline & CRM Automation", desc: "deals move themselves through stages, tasks auto-created" },
+    { title: "Social DM Auto-Reply", desc: "Instagram & Facebook messages answered and booked instantly" },
+    { title: "Monthly Strategy Call", desc: "we review performance and optimize" },
+    { title: "Priority support", desc: "same-day, direct line to you" },
+  ];
+
   return (
     <div style={{ minHeight: "100vh", background: "#050505", padding: "40px 20px" }}>
       {/* Header */}
@@ -142,7 +172,66 @@ function AgreementPageInner() {
             <p>This Service Agreement (&quot;Agreement&quot;) is entered into between <strong>Zeno Automation</strong> (&quot;Provider&quot;) and <strong>{client.business_name}</strong> (&quot;Client&quot;).</p>
 
             <h3 style={{ color: "#fff", fontSize: 15, margin: "24px 0 8px" }}>1. Services</h3>
-            <p>Provider will deliver AI automation services under the <strong>{planName} Plan</strong>, including AI chatbot setup, missed-call text-back automation, Google review automation, appointment booking integration, and ongoing system maintenance.</p>
+            <p>Provider will deliver AI automation services under the <strong>{planName} Plan</strong>.</p>
+            <p style={{ color: "#fff", fontStyle: "italic", margin: "8px 0 4px" }}>&ldquo;{planTagline}&rdquo;</p>
+            <p style={{ color: "#999", fontSize: 13, margin: "0 0 12px" }}>{planSubtitle}</p>
+
+            <button
+              type="button"
+              onClick={() => setFeaturesOpen((o) => !o)}
+              style={{
+                width: "100%",
+                background: "rgba(37,99,235,0.08)",
+                border: "1px solid rgba(37,99,235,0.25)",
+                borderRadius: 10,
+                padding: "12px 16px",
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                fontFamily: "inherit",
+                marginTop: 8,
+              }}
+              aria-expanded={featuresOpen}
+            >
+              <span>View all {planName} Plan features</span>
+              <span style={{ fontSize: 12, transform: featuresOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▼</span>
+            </button>
+
+            {featuresOpen && (
+              <div style={{ marginTop: 12, padding: "16px 20px", background: "rgba(37,99,235,0.04)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)" }}>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {growthFeatures.map((f) => (
+                    <li key={f.title} style={{ padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)", fontSize: 13, lineHeight: 1.6 }}>
+                      <span style={{ color: "#2563EB", marginRight: 8 }}>✓</span>
+                      <strong style={{ color: "#fff" }}>{f.title}</strong>
+                      <span style={{ color: "#999" }}> — {f.desc}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {isElite && (
+                  <>
+                    <p style={{ color: "#fff", fontSize: 13, fontWeight: 600, margin: "16px 0 8px" }}>Everything in Growth, plus:</p>
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                      {eliteExtraFeatures.map((f) => (
+                        <li key={f.title} style={{ padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)", fontSize: 13, lineHeight: 1.6 }}>
+                          <span style={{ color: "#2563EB", marginRight: 8 }}>✓</span>
+                          <strong style={{ color: "#fff" }}>{f.title}</strong>
+                          <span style={{ color: "#999" }}> — {f.desc}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p style={{ color: "#fff", fontSize: 13, fontStyle: "italic", margin: "16px 0 0", textAlign: "center" }}>
+                      &ldquo;Growth plugs the leaks. Elite replaces your front desk.&rdquo;
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
 
             <h3 style={{ color: "#fff", fontSize: 15, margin: "24px 0 8px" }}>2. Pricing</h3>
             <div style={{ background: "rgba(37,99,235,0.08)", borderRadius: 10, padding: "16px 20px", margin: "12px 0" }}>
@@ -152,7 +241,7 @@ function AgreementPageInner() {
             </div>
 
             <h3 style={{ color: "#fff", fontSize: 15, margin: "24px 0 8px" }}>3. Delivery Timeline</h3>
-            <p>Provider will deliver the initial AI system within <strong>7 business days</strong> of receiving the completed onboarding form from Client.</p>
+            <p>Provider will deliver the initial AI system within <strong>3 business days</strong> of receiving the completed onboarding form from Client.</p>
 
             <h3 style={{ color: "#fff", fontSize: 15, margin: "24px 0 8px" }}>4. Term &amp; Cancellation</h3>
             <p>This agreement is <strong>month-to-month</strong> after the initial setup. Either party may cancel with 30 days written notice. Setup fees are non-refundable.</p>
