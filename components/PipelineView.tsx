@@ -22,10 +22,17 @@ export default function PipelineView({ clients, onRefresh }: Props) {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
+  const authHeaders = {
+    Authorization: `Bearer ${process.env.NEXT_PUBLIC_ADMIN_SECRET}`,
+  };
+
   async function handleDelete(clientId: number) {
     setActionLoading(clientId);
     try {
-      await fetch(`/api/clients/${clientId}`, { method: "DELETE" });
+      await fetch(`/api/clients/${clientId}`, {
+        method: "DELETE",
+        headers: authHeaders,
+      });
       onRefresh();
     } catch (err) {
       console.error("Delete failed:", err);
@@ -41,13 +48,13 @@ export default function PipelineView({ clients, onRefresh }: Props) {
       if (action === "mark_signed") {
         await fetch("/api/agreement-signed", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { ...authHeaders, "Content-Type": "application/json" },
           body: JSON.stringify({ clientId: client.id }),
         });
       } else {
         await fetch(`/api/clients/${client.id}`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: { ...authHeaders, "Content-Type": "application/json" },
           body: JSON.stringify({ status: action }),
         });
       }
