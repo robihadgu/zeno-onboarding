@@ -20,22 +20,20 @@ export async function POST(req: NextRequest) {
     const token = uuidv4();
     const client = await createClient(name, businessName, email, plan, token);
 
-    // Send agreement email in background — don't block the response
+    // Send agreement email before returning — must complete before Vercel freezes the function
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const agreementLink = `${appUrl}/agreement?token=${token}`;
 
-    (async () => {
-      try {
-        await sendEmail(
-          client.email,
-          "Your Zeno Automation Service Agreement",
-          agreementEmailHtml(client, agreementLink)
-        );
-        console.log(`[Onboard] Agreement email sent to ${client.email}`);
-      } catch (err) {
-        console.error(`[Onboard] Agreement email failed:`, err);
-      }
-    })();
+    try {
+      await sendEmail(
+        client.email,
+        "Your Zeno Automation Service Agreement",
+        agreementEmailHtml(client, agreementLink)
+      );
+      console.log(`[Onboard] Agreement email sent to ${client.email}`);
+    } catch (err) {
+      console.error(`[Onboard] Agreement email failed:`, err);
+    }
 
     return NextResponse.json(client, { status: 201 });
   } catch (err) {

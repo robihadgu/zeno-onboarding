@@ -40,37 +40,37 @@ export async function POST(req: NextRequest) {
       signedUserAgent,
     });
 
-    const clientSnapshot = { ...client };
+    // Send welcome email with Stripe link + onboarding link
+    const stripeLink = client.stripe_link || "#";
+    const welcomeHtml = welcomeEmailHtml(client, stripeLink, ONBOARDING_URL);
 
-    // Background: send welcome email + notify team (non-blocking)
-    (async () => {
-      try {
-        // Send welcome email with Stripe link + onboarding link
-        const stripeLink = clientSnapshot.stripe_link || "#";
-        const welcomeHtml = welcomeEmailHtml(clientSnapshot, stripeLink, ONBOARDING_URL);
+    try {
+      await sendEmail(
+        client.email,
+        "Welcome to Zeno Automation — You're In! 🎉",
+        welcomeHtml
+      );
+      console.log(`[Welcome] Email sent to ${client.email}`);
+    } catch (err) {
+      console.error(`[Welcome] Error:`, err);
+    }
 
-        sendEmail(
-          clientSnapshot.email,
-          "Welcome to Zeno Automation — You're In! 🎉",
-          welcomeHtml
-        ).catch((err) => console.error(`[Welcome] Error:`, err));
+    // Update status to welcome_sent
+    await updateClientStatus(client.id, "welcome_sent");
 
-        // Update status
-        await updateClientStatus(clientSnapshot.id, "welcome_sent");
+    // Notify team
+    const teamEmail = process.env.TEAM_EMAIL || "zenoscale@gmail.com";
+    const notifHtml = teamNotificationHtml(client);
 
-        // Notify team
-        const teamEmail = process.env.TEAM_EMAIL || "zenoscale@gmail.com";
-        const notifHtml = teamNotificationHtml(clientSnapshot);
-
-        sendEmail(
-          teamEmail,
-          `Agreement Signed: ${clientSnapshot.business_name}`,
-          notifHtml
-        ).catch((err) => console.error(`[Notify] Error:`, err));
-      } catch (err) {
-        console.error("[Agreement-signed background] Error:", err);
-      }
-    })();
+    try {
+      await sendEmail(
+        teamEmail,
+        `Agreement Signed: ${client.business_name}`,
+        notifHtml
+      );
+    } catch (err) {
+      console.error(`[Notify] Error:`, err);
+    }
 
     const updated = await getClientById(client.id);
     return NextResponse.json(updated);

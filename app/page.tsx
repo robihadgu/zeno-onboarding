@@ -12,7 +12,9 @@ export default function Dashboard() {
 
   const fetchClients = useCallback(async () => {
     try {
-      const res = await fetch("/api/clients");
+      const res = await fetch("/api/clients", {
+        headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_ADMIN_SECRET}` },
+      });
       if (res.ok) {
         const data = await res.json();
         setClients(data);

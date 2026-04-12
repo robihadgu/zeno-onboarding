@@ -73,11 +73,15 @@ export async function POST(req: NextRequest) {
       if (client.onboarding_completed_at) {
         await updateClientStatus(client.id, "complete");
         const teamEmail = process.env.TEAM_EMAIL || "zenoscale@gmail.com";
-        sendEmail(
-          teamEmail,
-          `Ready to Build: ${client.business_name}`,
-          `<p><strong>${client.business_name}</strong> has completed payment and onboarding. Ready to build on GoHighLevel.</p>`
-        ).catch((err) => console.error("[Stripe] Team notify error:", err));
+        try {
+          await sendEmail(
+            teamEmail,
+            `Ready to Build: ${client.business_name}`,
+            `<p><strong>${client.business_name}</strong> has completed payment and onboarding. Ready to build on GoHighLevel.</p>`
+          );
+        } catch (err) {
+          console.error("[Stripe] Team notify error:", err);
+        }
         console.log(`[Stripe] ${client.business_name} auto-completed (payment + onboarding done)`);
       }
     }

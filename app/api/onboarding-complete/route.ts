@@ -93,11 +93,15 @@ export async function POST(req: NextRequest) {
         </div>
       `;
 
-      sendEmail(
-        teamEmail,
-        `Ready to Build: ${client.business_name} — All Steps Complete ✅`,
-        readyHtml
-      ).catch((err) => console.error("[Onboarding Webhook] Email error:", err));
+      try {
+        await sendEmail(
+          teamEmail,
+          `Ready to Build: ${client.business_name} — All Steps Complete ✅`,
+          readyHtml
+        );
+      } catch (err) {
+        console.error("[Onboarding Webhook] Email error:", err);
+      }
 
       console.log(`[Onboarding Webhook] ${client.business_name}: Payment + Onboarding both done. Auto-completed.`);
     }
